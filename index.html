@@ -10,51 +10,70 @@
 <link rel="apple-touch-icon" href="icon-192.png" />
 <style>
   html, body { margin: 0; padding: 0; background: #C9A96B; }
-  #root { min-height: 100vh; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    background: #C9A96B;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 6px);
+    padding: 24px 14px 60px;
+    display: flex;
+    justify-content: center;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  .hand { font-family: Georgia, 'Times New Roman', serif; font-style: italic; }
+  #root { width: 100%; max-width: 480px; }
+  .notebook { width: 100%; background: #F5EFDF; border-radius: 4px;
+    box-shadow: 0 18px 40px rgba(50,35,15,0.35), 0 2px 0 rgba(0,0,0,0.1); position: relative; overflow: hidden; min-height: 660px; }
+  .margin-line { position: absolute; left: 46px; top: 0; bottom: 0; width: 2px; background: #C0392B; opacity: 0.55; }
+  .ruled { background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(27,42,74,0.08) 32px); }
+  .tab-btn { border: none; background: transparent; text-align: left; padding: 12px 16px 2px 58px; font-size: 15.5px;
+    font-weight: 600; color: #1B2A4A; display: flex; align-items: baseline; gap: 10px; width: 100%; }
+  select, input[type=text] { font-family: inherit; border: 2px solid #1B2A4A; border-radius: 8px; padding: 8px 10px; font-size: 14px; background: #fff; color: #1B2A4A; width: 100%; }
+  .flip-card { perspective: 1000px; height: 190px; cursor: pointer; }
+  .flip-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s; transform-style: preserve-3d; }
+  .flip-inner.flipped { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 18px; text-align: center; }
+  .face.front { background: #fff; border: 2px solid #1B2A4A; }
+  .face.back { background: #1B2A4A; color: #F5EFDF; transform: rotateY(180deg); }
+  .choice-btn { border: 2px solid #1B2A4A; background: #fff; border-radius: 8px; padding: 11px 14px; font-size: 14.5px;
+    font-weight: 600; color: #1B2A4A; text-align: left; width: 100%; }
+  .choice-btn.correct { background: #2F4F3E; border-color: #2F4F3E; color: #fff; }
+  .choice-btn.wrong { background: #C0392B; border-color: #C0392B; color: #fff; }
+  .primary-btn { background: #C0392B; color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-weight: 700; font-size: 15px; }
+  .ghost-btn { background: transparent; border: 2px solid #1B2A4A; color: #1B2A4A; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: 13.5px; }
+  .speak-btn { background: #1B2A4A; color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .speak-btn.small { width: 28px; height: 28px; font-size: 12px; }
+  .cat-row { border-bottom: 1px dashed rgba(27,42,74,0.2); }
+  .cat-actions { padding: 0 16px 12px 58px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .stamp { width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid #2F4F3E; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 12px; color: #2F4F3E; transform: rotate(-8deg); flex-shrink: 0; }
+  .stamp.low { border-color: #C0392B; color: #C0392B; }
+  .search-results { margin-top: 8px; max-height: 160px; overflow-y: auto; background: #fff; border: 1.5px solid #1B2A4A; border-radius: 8px; padding: 8px; }
+  .search-row { font-size: 13.5px; padding: 4px 2px; border-bottom: 1px dashed #ddd; display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .search-row:last-child { border-bottom: none; }
+  .hidden { display: none !important; }
 </style>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
 </head>
 <body>
 <div id="root"></div>
+
 <script>
-// Substitut de window.storage (utilisé normalement dans les artefacts Claude)
-// basé sur localStorage, pour que l'application fonctionne hors de Claude.ai
 window.storage = {
-  async get(key, shared) {
-    try {
-      const raw = localStorage.getItem('carnet_' + key);
-      return raw === null ? null : { key, value: raw, shared: !!shared };
-    } catch (e) { return null; }
-  },
-  async set(key, value, shared) {
-    try {
-      localStorage.setItem('carnet_' + key, value);
-      return { key, value, shared: !!shared };
-    } catch (e) { return null; }
-  },
-  async delete(key, shared) {
-    try {
-      localStorage.removeItem('carnet_' + key);
-      return { key, deleted: true, shared: !!shared };
-    } catch (e) { return null; }
-  },
-  async list(prefix, shared) {
-    const p = 'carnet_' + (prefix || '');
-    const keys = Object.keys(localStorage).filter(k => k.startsWith(p)).map(k => k.slice(8));
-    return { keys, prefix, shared: !!shared };
-  }
+  async get(key) { try { const raw = localStorage.getItem('carnet_' + key); return raw === null ? null : { key, value: raw }; } catch (e) { return null; } },
+  async set(key, value) { try { localStorage.setItem('carnet_' + key, value); return { key, value }; } catch (e) { return null; } },
 };
 </script>
-<script type="text/babel" data-presets="react">
-/* ==========================================================================
-   MON CARNET D'ANGLAIS — MÉTHODE
-   Vocabulaire (1000+ mots), phrases-modèles façon Michel Thomas
-   (on apprend des blocs de construction et on les combine), quiz, et un
-   constructeur de phrases interactif.
-   ========================================================================== */
 
+<script>
+/* ==========================================================================
+   MON CARNET D'ANGLAIS — MÉTHODE (version autonome, sans dépendance externe)
+   Vocabulaire (1000+ mots), phrases-modèles façon Michel Thomas,
+   quiz, et un constructeur de phrases interactif.
+   ========================================================================== */
+</script>
 const TITLES = {
   numbers: "Nombres & quantités",
   colors: "Couleurs",
@@ -127,55 +146,6 @@ const RAW = {
     "engine oil|huile moteur,spark plug|bougie d'allumage,chain|chaîne,clutch|embrayage,gear|vitesse,gearbox|boîte de vitesses,exhaust pipe|pot d'échappement,carburetor|carburateur,moto battery|batterie de moto,headlight|phare,taillight|feu arrière,horn|klaxon,side mirror|rétroviseur,kickstand|béquille,handlebar|guidon,wheel|roue,puncture|crevaison,mechanic shop|garage,spare part|pièce de rechange,tool|outil,wrench|clé (outil),screwdriver|tournevis,to start the engine|démarrer le moteur,to check the oil|vérifier l'huile,flat tire|pneu à plat,brake pad|plaquette de frein,fuel tank|réservoir d'essence,top speed|vitesse maximale,accident|accident,license plate|plaque d'immatriculation,insurance papers|papiers d'assurance,registration card|carte grise,mileage|kilométrage,to overheat|surchauffer,to break down|tomber en panne,to tighten|serrer,to loosen|desserrer",
 };
 
-function speak(text) {
-  try {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text.replace(/^to\s+/i, ""));
-    utter.lang = "en-US";
-    utter.rate = 0.9;
-    window.speechSynthesis.speak(utter);
-  } catch (e) {}
-}
-
-function SpeakBtn({ text, size = 20 }) {
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); speak(text); }}
-      aria-label="Écouter la prononciation"
-      style={{
-        background: "#1B2A4A", color: "#fff", border: "none", borderRadius: "50%",
-        width: size + 16, height: size + 16, display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size, flexShrink: 0, boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-      }}
-    >
-      🔊
-    </button>
-  );
-}
-
-function parseCategory(raw) {
-  return raw
-    .split(",")
-    .map((pair) => {
-      const [en, fr] = pair.split("|");
-      return { en, fr };
-    })
-    .filter((x) => x.en && x.fr);
-}
-
-const CATEGORIES = Object.keys(RAW).map((id) => ({
-  id,
-  title: TITLES[id],
-  words: parseCategory(RAW[id]),
-}));
-
-const ALL_WORDS = CATEGORIES.flatMap((c) => c.words.map((w) => ({ ...w, cat: c.id })));
-
-// --------------------------------------------------------------------------
-// PATTERNS — la méthode "façon Michel Thomas" : des blocs de construction
-// qu'on combine avec des verbes pour produire des dizaines de phrases.
-// --------------------------------------------------------------------------
 const PATTERNS = [
   { en: "I want to", fr: "Je veux" },
   { en: "I don't want to", fr: "Je ne veux pas" },
@@ -226,246 +196,268 @@ const BUILDER_VERBS = [
 ];
 
 const BUILDER_OBJECTS = ["", "today", "tomorrow", "with you", "right now", "this evening", "before Friday"];
+</script>
 
-const STORAGE_KEY = "carnet-anglais-v2-progress";
-
-function useProgress() {
-  const [progress, setProgress] = useState({});
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await window.storage.get(STORAGE_KEY, false);
-        setProgress(res ? JSON.parse(res.value) : {});
-      } catch (e) {
-        setProgress({});
-      }
-    })();
-  }, []);
-
-  const save = useCallback(async (next) => {
-    setProgress(next);
-    try {
-      await window.storage.set(STORAGE_KEY, JSON.stringify(next), false);
-    } catch (e) {}
-  }, []);
-
-  const recordAnswer = useCallback(
-    (catId, correct) => {
-      setProgress((prev) => {
-        const cur = prev[catId] || { correct: 0, attempts: 0 };
-        const next = {
-          ...prev,
-          [catId]: { correct: cur.correct + (correct ? 1 : 0), attempts: cur.attempts + 1 },
-        };
-        save(next);
-        return next;
-      });
-    },
-    [save]
-  );
-
-  return { progress, recordAnswer };
+<script>
+// --------------------------------------------------------------------------
+// Parsing des données
+// --------------------------------------------------------------------------
+function parseCategory(raw) {
+  return raw.split(",").map((pair) => {
+    const [en, fr] = pair.split("|");
+    return { en, fr };
+  }).filter((x) => x.en && x.fr);
 }
 
-function Stamp({ stats }) {
+const CATEGORIES = Object.keys(RAW).map((id) => ({
+  id,
+  title: TITLES[id],
+  words: parseCategory(RAW[id]),
+}));
+
+const ALL_WORDS = CATEGORIES.flatMap((c) => c.words.map((w) => ({ ...w, cat: c.id })));
+
+// --------------------------------------------------------------------------
+// Utilitaires
+// --------------------------------------------------------------------------
+function speak(text) {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text.replace(/^to\s+/i, ""));
+    utter.lang = "en-US";
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
+}
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      if (k === "class") node.className = attrs[k];
+      else if (k === "text") node.textContent = attrs[k];
+      else if (k === "html") node.innerHTML = attrs[k];
+      else if (k.startsWith("on") && typeof attrs[k] === "function") node.addEventListener(k.slice(2), attrs[k]);
+      else node.setAttribute(k, attrs[k]);
+    }
+  }
+  (children || []).forEach((c) => { if (c) node.appendChild(c); });
+  return node;
+}
+
+function speakBtn(text, small) {
+  const b = el("button", { class: "speak-btn" + (small ? " small" : ""), text: "🔊", "aria-label": "Écouter" });
+  b.addEventListener("click", (e) => { e.stopPropagation(); speak(text); });
+  return b;
+}
+
+// --------------------------------------------------------------------------
+// Progression (quiz scores) — stockée en local
+// --------------------------------------------------------------------------
+const PROGRESS_KEY = "carnet-anglais-v2-progress";
+let progress = {};
+
+async function loadProgress() {
+  try {
+    const res = await window.storage.get(PROGRESS_KEY);
+    progress = res ? JSON.parse(res.value) : {};
+  } catch (e) { progress = {}; }
+}
+
+async function saveProgress() {
+  try { await window.storage.set(PROGRESS_KEY, JSON.stringify(progress)); } catch (e) {}
+}
+
+function recordAnswer(catId, correct) {
+  const cur = progress[catId] || { correct: 0, attempts: 0 };
+  progress[catId] = { correct: cur.correct + (correct ? 1 : 0), attempts: cur.attempts + 1 };
+  saveProgress();
+}
+
+function stampNode(catId) {
+  const stats = progress[catId];
   if (!stats || !stats.attempts) return null;
   const pct = Math.round((stats.correct / stats.attempts) * 100);
-  return (
-    <div
-      style={{
-        width: 40, height: 40, borderRadius: "50%",
-        border: `2.5px solid ${pct >= 70 ? "#2F4F3E" : "#C0392B"}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'Kalam', cursive", fontWeight: 700, fontSize: 12,
-        color: pct >= 70 ? "#2F4F3E" : "#C0392B", transform: "rotate(-8deg)", flexShrink: 0,
-      }}
-    >
-      {pct}%
-    </div>
-  );
+  const stamp = el("div", { class: "stamp" + (pct < 70 ? " low" : ""), text: pct + "%" });
+  return stamp;
 }
 
-function App() {
-  const [screen, setScreen] = useState("home");
-  const [catId, setCatId] = useState(null);
-  const [search, setSearch] = useState("");
-  const { progress, recordAnswer } = useProgress();
-  const category = useMemo(() => CATEGORIES.find((c) => c.id === catId) || null, [catId]);
+// --------------------------------------------------------------------------
+// Navigation / state
+// --------------------------------------------------------------------------
+const root = document.getElementById("root");
+let state = { screen: "home", catId: null, search: "" };
 
-  const wordCount = ALL_WORDS.length;
-
-  const searchResults = useMemo(() => {
-    if (search.trim().length < 2) return [];
-    const q = search.trim().toLowerCase();
-    return ALL_WORDS.filter((w) => w.en.toLowerCase().includes(q) || w.fr.toLowerCase().includes(q)).slice(0, 30);
-  }, [search]);
-
-  return (
-    <div
-      style={{
-        minHeight: "100vh", background: "#C9A96B",
-        backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 6px)",
-        fontFamily: "'Work Sans', sans-serif", padding: "24px 14px 60px", display: "flex", justifyContent: "center",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Work+Sans:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        button { font-family: inherit; cursor: pointer; }
-        .notebook { width: 100%; max-width: 480px; background: #F5EFDF; border-radius: 4px;
-          box-shadow: 0 18px 40px rgba(50,35,15,0.35), 0 2px 0 rgba(0,0,0,0.1); position: relative; overflow: hidden; min-height: 660px; }
-        .margin-line { position: absolute; left: 46px; top: 0; bottom: 0; width: 2px; background: #C0392B; opacity: 0.55; }
-        .ruled { background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(27,42,74,0.08) 32px); }
-        .tab-btn { border: none; background: transparent; text-align: left; padding: 12px 16px 12px 58px; font-size: 15.5px;
-          font-weight: 600; color: #1B2A4A; display: flex; align-items: baseline; gap: 10px; width: 100%; }
-        select, input[type=text] { font-family: inherit; border: 2px solid #1B2A4A; border-radius: 8px; padding: 8px 10px; font-size: 14px; background: #fff; color: #1B2A4A; }
-        .flip-card { perspective: 1000px; height: 190px; }
-        .flip-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s; transform-style: preserve-3d; }
-        .flip-inner.flipped { transform: rotateY(180deg); }
-        .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; padding: 18px; text-align: center; }
-        .face.front { background: #fff; border: 2px solid #1B2A4A; }
-        .face.back { background: #1B2A4A; color: #F5EFDF; transform: rotateY(180deg); }
-        .choice-btn { border: 2px solid #1B2A4A; background: #fff; border-radius: 8px; padding: 11px 14px; font-size: 14.5px;
-          font-weight: 600; color: #1B2A4A; text-align: left; }
-        .choice-btn.correct { background: #2F4F3E; border-color: #2F4F3E; color: #fff; }
-        .choice-btn.wrong { background: #C0392B; border-color: #C0392B; color: #fff; }
-        .primary-btn { background: #C0392B; color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-weight: 700; font-size: 15px; }
-        .ghost-btn { background: transparent; border: 2px solid #1B2A4A; color: #1B2A4A; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: 13.5px; }
-        .chip { display: inline-block; padding: 6px 10px; border: 1.5px solid #1B2A4A; border-radius: 20px; font-size: 12.5px; margin: 3px 4px 3px 0; background: #fff; color:#1B2A4A; }
-      `}</style>
-
-      <div className="notebook">
-        {screen === "home" && (
-          <Home
-            progress={progress}
-            wordCount={wordCount}
-            search={search}
-            setSearch={setSearch}
-            searchResults={searchResults}
-            onOpen={(id, mode) => { setCatId(id); setScreen(mode); }}
-            onBuilder={() => setScreen("builder")}
-            onGeneralQuiz={() => { setCatId("__all__"); setScreen("quiz"); }}
-          />
-        )}
-        {screen === "flash" && category && (
-          <Flashcards category={category} onBack={() => setScreen("home")} onQuiz={() => setScreen("quiz")} />
-        )}
-        {screen === "quiz" && catId && (
-          <Quiz
-            title={catId === "__all__" ? "Quiz général" : category.title}
-            pool={catId === "__all__" ? ALL_WORDS : category.words}
-            catKey={catId}
-            onAnswer={recordAnswer}
-            onBack={() => setScreen("home")}
-          />
-        )}
-        {screen === "builder" && <Builder onBack={() => setScreen("home")} />}
-      </div>
-    </div>
-  );
+function navigate(screen, catId) {
+  state = { screen, catId: catId || null, search: state.search };
+  render();
+  window.scrollTo(0, 0);
 }
 
-function Home({ progress, wordCount, search, setSearch, searchResults, onOpen, onBuilder, onGeneralQuiz }) {
-  return (
-    <div>
-      <div className="margin-line" />
-      <div style={{ padding: "24px 20px 14px 58px" }}>
-        <div style={{ fontFamily: "'Kalam', cursive", fontSize: 28, fontWeight: 700, color: "#1B2A4A", transform: "rotate(-1.5deg)" }}>
-          Mon carnet d'anglais
-        </div>
-        <div style={{ fontSize: 13, color: "#5b4a35", marginTop: 4 }}>
-          {wordCount}+ mots et {PATTERNS.length} structures — méthode par blocs, comme Michel Thomas.
-        </div>
-        <input
-          type="text" placeholder="Chercher un mot (ex : maison, to go...)" value={search}
-          onChange={(e) => setSearch(e.target.value)} style={{ width: "100%", marginTop: 12 }}
-        />
-        {searchResults.length > 0 && (
-          <div style={{ marginTop: 8, maxHeight: 160, overflowY: "auto", background: "#fff", border: "1.5px solid #1B2A4A", borderRadius: 8, padding: 8 }}>
-            {searchResults.map((w, i) => (
-              <div key={i} style={{ fontSize: 13.5, padding: "4px 2px", borderBottom: i < searchResults.length - 1 ? "1px dashed #ddd" : "none", display: "flex", alignItems: "center", gap: 8 }}>
-                <span><strong>{w.en}</strong> — {w.fr}</span>
-                <SpeakBtn text={w.en} size={12} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+function render() {
+  root.innerHTML = "";
+  const wrap = el("div", { class: "notebook" });
+  wrap.appendChild(el("div", { class: "margin-line" }));
 
-      <div style={{ padding: "4px 20px 14px 58px", display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="primary-btn" style={{ fontSize: 13.5, padding: "9px 14px" }} onClick={onBuilder}>
-          🧩 Constructeur de phrases
-        </button>
-        <button className="ghost-btn" onClick={onGeneralQuiz}>Quiz général (tout mélangé)</button>
-      </div>
+  if (state.screen === "home") wrap.appendChild(renderHome());
+  else if (state.screen === "flash") wrap.appendChild(renderFlashcards(state.catId));
+  else if (state.screen === "quiz") wrap.appendChild(renderQuiz(state.catId));
+  else if (state.screen === "builder") wrap.appendChild(renderBuilder());
 
-      <div style={{ borderTop: "1px dashed rgba(27,42,74,0.25)", maxHeight: 380, overflowY: "auto" }}>
-        {CATEGORIES.map((c, i) => (
-          <div key={c.id} style={{ borderBottom: "1px dashed rgba(27,42,74,0.2)" }}>
-            <div className="tab-btn" style={{ paddingBottom: 2 }}>
-              <span style={{ fontFamily: "'Kalam', cursive", color: "#C0392B", fontWeight: 700, fontSize: 14 }}>
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <div>{c.title}</div>
-                <div style={{ fontWeight: 400, fontSize: 12, color: "#5b4a35" }}>{c.words.length} mots</div>
-              </div>
-            </div>
-            <div style={{ padding: "0 16px 12px 58px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button className="primary-btn" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => onOpen(c.id, "flash")}>Fiches</button>
-              <button className="ghost-btn" onClick={() => onOpen(c.id, "quiz")}>Quiz</button>
-              <Stamp stats={progress[c.id]} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: "14px 20px 20px 58px", fontSize: 11.5, color: "#8a7455" }}>
-        Astuce Michel Thomas : ne mémorise pas par cœur — combine les blocs (« I want to » + un verbe) pour produire toi-même des phrases.
-      </div>
-    </div>
-  );
+  root.appendChild(wrap);
 }
 
-function Flashcards({ category, onBack, onQuiz }) {
-  const [idx, setIdx] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const item = category.words[idx];
-  const next = () => { setFlipped(false); setIdx((i) => (i + 1) % category.words.length); };
-  const prev = () => { setFlipped(false); setIdx((i) => (i - 1 + category.words.length) % category.words.length); };
-
-  return (
-    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
-      <div className="margin-line" />
-      <TopBar title={category.title} onBack={onBack} />
-      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 10 }}>
-        Carte {idx + 1} / {category.words.length} — touche la carte pour retourner
-      </div>
-      <div className="flip-card" onClick={() => setFlipped((f) => !f)}>
-        <div className={`flip-inner ${flipped ? "flipped" : ""}`}>
-          <div className="face front">
-            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-              <div style={{ fontSize: 21, fontWeight: 700, color: "#1B2A4A" }}>{item.en}</div>
-              <SpeakBtn text={item.en} />
-            </div>
-            <div style={{ fontSize: 12, color: "#8a7455", marginTop: 10 }}>touche pour voir la traduction · touche 🔊 pour écouter</div>
-          </div>
-          <div className="face back">
-            <div style={{ fontSize: 21, fontWeight: 700 }}>{item.fr}</div>
-          </div>
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 18 }}>
-        <button className="ghost-btn" onClick={prev}>← Précédent</button>
-        <button className="ghost-btn" onClick={next}>Suivant →</button>
-      </div>
-      <div style={{ marginTop: "auto", paddingTop: 20 }}>
-        <button className="primary-btn" style={{ width: "100%" }} onClick={onQuiz}>Faire le quiz de ce chapitre</button>
-      </div>
-    </div>
-  );
+function topBar(title, onBack) {
+  const bar = el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;" });
+  const back = el("button", { class: "ghost-btn", style: "padding:6px 12px;font-size:13px;", text: "← Carnet" });
+  back.addEventListener("click", onBack);
+  const titleEl = el("div", { class: "hand", style: "font-size:17px;font-weight:700;color:#1B2A4A;", text: title });
+  bar.appendChild(back);
+  bar.appendChild(titleEl);
+  bar.appendChild(el("div", { style: "width:70px;" }));
+  return bar;
 }
 
+// --------------------------------------------------------------------------
+// Écran Accueil
+// --------------------------------------------------------------------------
+function renderHome() {
+  const c = el("div", { style: "padding:24px 20px 14px 58px;" });
+  c.appendChild(el("div", { class: "hand", style: "font-size:28px;font-weight:700;color:#1B2A4A;transform:rotate(-1.5deg);", text: "Mon carnet d'anglais" }));
+  c.appendChild(el("div", { style: "font-size:13px;color:#5b4a35;margin-top:4px;", text: `${ALL_WORDS.length}+ mots et ${PATTERNS.length} structures — méthode par blocs, comme Michel Thomas.` }));
+
+  const searchInput = el("input", { type: "text", placeholder: "Chercher un mot (ex : maison, to go...)", style: "margin-top:12px;" });
+  searchInput.value = state.search;
+  const resultsBox = el("div", { class: "search-results hidden" });
+
+  function updateSearch() {
+    const q = searchInput.value.trim().toLowerCase();
+    state.search = searchInput.value;
+    resultsBox.innerHTML = "";
+    if (q.length < 2) { resultsBox.classList.add("hidden"); return; }
+    const results = ALL_WORDS.filter((w) => w.en.toLowerCase().includes(q) || w.fr.toLowerCase().includes(q)).slice(0, 30);
+    if (results.length === 0) { resultsBox.classList.add("hidden"); return; }
+    resultsBox.classList.remove("hidden");
+    results.forEach((w) => {
+      const row = el("div", { class: "search-row" });
+      row.appendChild(el("span", { html: `<strong>${w.en}</strong> — ${w.fr}` }));
+      row.appendChild(speakBtn(w.en, true));
+      resultsBox.appendChild(row);
+    });
+  }
+  searchInput.addEventListener("input", updateSearch);
+
+  c.appendChild(searchInput);
+  c.appendChild(resultsBox);
+  updateSearch();
+
+  const actions = el("div", { style: "padding:10px 0 0;display:flex;gap:8px;flex-wrap:wrap;" });
+  const builderBtn = el("button", { class: "primary-btn", style: "font-size:13.5px;padding:9px 14px;", text: "🧩 Constructeur de phrases" });
+  builderBtn.addEventListener("click", () => navigate("builder"));
+  const quizAllBtn = el("button", { class: "ghost-btn", text: "Quiz général (tout mélangé)" });
+  quizAllBtn.addEventListener("click", () => navigate("quiz", "__all__"));
+  actions.appendChild(builderBtn);
+  actions.appendChild(quizAllBtn);
+  c.appendChild(actions);
+
+  const wrapper = el("div", {});
+  wrapper.appendChild(c);
+
+  const list = el("div", { style: "border-top:1px dashed rgba(27,42,74,0.25);max-height:380px;overflow-y:auto;" });
+  CATEGORIES.forEach((cat, i) => {
+    const row = el("div", { class: "cat-row" });
+    const header = el("div", { class: "tab-btn" });
+    header.appendChild(el("span", { class: "hand", style: "color:#C0392B;font-weight:700;font-size:14px;", text: String(i + 1).padStart(2, "0") }));
+    const info = el("div", {});
+    info.appendChild(el("div", { text: cat.title }));
+    info.appendChild(el("div", { style: "font-weight:400;font-size:12px;color:#5b4a35;", text: cat.words.length + " mots" }));
+    header.appendChild(info);
+    row.appendChild(header);
+
+    const actionsRow = el("div", { class: "cat-actions" });
+    const fichesBtn = el("button", { class: "primary-btn", style: "padding:7px 12px;font-size:13px;", text: "Fiches" });
+    fichesBtn.addEventListener("click", () => navigate("flash", cat.id));
+    const quizBtn = el("button", { class: "ghost-btn", text: "Quiz" });
+    quizBtn.addEventListener("click", () => navigate("quiz", cat.id));
+    actionsRow.appendChild(fichesBtn);
+    actionsRow.appendChild(quizBtn);
+    const stamp = stampNode(cat.id);
+    if (stamp) actionsRow.appendChild(stamp);
+    row.appendChild(actionsRow);
+
+    list.appendChild(row);
+  });
+  wrapper.appendChild(list);
+
+  wrapper.appendChild(el("div", {
+    style: "padding:14px 20px 20px 58px;font-size:11.5px;color:#8a7455;",
+    text: "Astuce Michel Thomas : ne mémorise pas par cœur — combine les blocs (« I want to » + un verbe) pour produire toi-même des phrases."
+  }));
+
+  return wrapper;
+}
+
+// --------------------------------------------------------------------------
+// Écran Fiches (flashcards)
+// --------------------------------------------------------------------------
+function renderFlashcards(catId) {
+  const category = CATEGORIES.find((c) => c.id === catId);
+  let idx = 0;
+  let flipped = false;
+
+  const c = el("div", { class: "ruled", style: "padding:20px 20px 24px 58px;min-height:660px;display:flex;flex-direction:column;" });
+  c.appendChild(topBar(category.title, () => navigate("home")));
+  const counter = el("div", { style: "font-size:13px;color:#5b4a35;margin-bottom:10px;" });
+  c.appendChild(counter);
+
+  const cardWrap = el("div", { class: "flip-card" });
+  const cardInner = el("div", { class: "flip-inner" });
+  const front = el("div", { class: "face front" });
+  const back = el("div", { class: "face back" });
+  cardInner.appendChild(front);
+  cardInner.appendChild(back);
+  cardWrap.appendChild(cardInner);
+  cardWrap.addEventListener("click", () => { flipped = !flipped; cardInner.classList.toggle("flipped", flipped); });
+  c.appendChild(cardWrap);
+
+  function updateCard() {
+    const item = category.words[idx];
+    counter.textContent = `Carte ${idx + 1} / ${category.words.length} — touche la carte pour retourner`;
+    front.innerHTML = "";
+    const row = el("div", { style: "display:flex;align-items:center;gap:10px;justify-content:center;" });
+    row.appendChild(el("div", { style: "font-size:21px;font-weight:700;color:#1B2A4A;", text: item.en }));
+    row.appendChild(speakBtn(item.en));
+    front.appendChild(row);
+    front.appendChild(el("div", { style: "font-size:12px;color:#8a7455;margin-top:10px;", text: "touche pour voir la traduction · touche 🔊 pour écouter" }));
+    back.innerHTML = "";
+    back.appendChild(el("div", { style: "font-size:21px;font-weight:700;", text: item.fr }));
+    flipped = false;
+    cardInner.classList.remove("flipped");
+  }
+  updateCard();
+
+  const nav = el("div", { style: "display:flex;justify-content:space-between;margin-top:18px;" });
+  const prevBtn = el("button", { class: "ghost-btn", text: "← Précédent" });
+  prevBtn.addEventListener("click", () => { idx = (idx - 1 + category.words.length) % category.words.length; updateCard(); });
+  const nextBtn = el("button", { class: "ghost-btn", text: "Suivant →" });
+  nextBtn.addEventListener("click", () => { idx = (idx + 1) % category.words.length; updateCard(); });
+  nav.appendChild(prevBtn);
+  nav.appendChild(nextBtn);
+  c.appendChild(nav);
+
+  const footer = el("div", { style: "margin-top:auto;padding-top:20px;" });
+  const quizBtn = el("button", { class: "primary-btn", style: "width:100%;", text: "Faire le quiz de ce chapitre" });
+  quizBtn.addEventListener("click", () => navigate("quiz", catId));
+  footer.appendChild(quizBtn);
+  c.appendChild(footer);
+
+  return c;
+}
+
+// --------------------------------------------------------------------------
+// Écran Quiz
+// --------------------------------------------------------------------------
 function buildQuestion(pool) {
   const correctItem = pool[Math.floor(Math.random() * pool.length)];
   const others = pool.filter((it) => it.fr !== correctItem.fr);
@@ -478,127 +470,133 @@ function buildQuestion(pool) {
   return { en: correctItem.en, correct: correctItem.fr, options };
 }
 
-function Quiz({ title, pool, catKey, onAnswer, onBack }) {
-  const [q, setQ] = useState(() => buildQuestion(pool));
-  const [selected, setSelected] = useState(null);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
-  const [round, setRound] = useState(1);
+function renderQuiz(catId) {
+  const category = catId === "__all__" ? null : CATEGORIES.find((c) => c.id === catId);
+  const pool = catId === "__all__" ? ALL_WORDS : category.words;
+  const title = catId === "__all__" ? "Quiz général" : category.title;
   const TOTAL_ROUNDS = 10;
 
-  const pick = (opt) => {
+  let q = buildQuestion(pool);
+  let selected = null;
+  let score = { correct: 0, total: 0 };
+  let round = 1;
+
+  const c = el("div", { class: "ruled", style: "padding:20px 20px 24px 58px;min-height:660px;display:flex;flex-direction:column;" });
+  c.appendChild(topBar("Quiz — " + title, () => navigate("home")));
+  const meta = el("div", { style: "font-size:13px;color:#5b4a35;margin-bottom:16px;" });
+  c.appendChild(meta);
+  c.appendChild(el("div", { style: "font-size:12px;color:#8a7455;margin-bottom:6px;", text: "Traduis en français :" }));
+  const qRow = el("div", { style: "display:flex;align-items:center;gap:10px;margin-bottom:20px;" });
+  c.appendChild(qRow);
+  const optionsWrap = el("div", { style: "display:flex;flex-direction:column;gap:10px;" });
+  c.appendChild(optionsWrap);
+  const footer = el("div", { style: "margin-top:auto;padding-top:20px;" });
+  c.appendChild(footer);
+
+  function updateQuestion() {
+    meta.textContent = `Question ${round} / ${TOTAL_ROUNDS} · Score : ${score.correct}/${score.total}`;
+    qRow.innerHTML = "";
+    qRow.appendChild(el("div", { style: "font-size:23px;font-weight:700;color:#1B2A4A;", text: q.en }));
+    qRow.appendChild(speakBtn(q.en));
+    optionsWrap.innerHTML = "";
+    q.options.forEach((opt) => {
+      const btn = el("button", { class: "choice-btn", text: opt });
+      if (selected) {
+        if (opt === q.correct) btn.classList.add("correct");
+        else if (opt === selected) btn.classList.add("wrong");
+      }
+      btn.addEventListener("click", () => pick(opt));
+      optionsWrap.appendChild(btn);
+    });
+    footer.innerHTML = "";
+    if (selected) {
+      const finished = round >= TOTAL_ROUNDS;
+      if (finished) {
+        footer.appendChild(el("div", { class: "hand", style: "font-size:17px;color:#1B2A4A;margin-bottom:10px;", text: `Terminé — ${score.correct}/${score.total} bonnes réponses !` }));
+      }
+      const nextBtn = el("button", { class: "primary-btn", style: "width:100%;", text: finished ? "Recommencer" : "Question suivante" });
+      nextBtn.addEventListener("click", nextQuestion);
+      footer.appendChild(nextBtn);
+    }
+  }
+
+  function pick(opt) {
     if (selected) return;
-    setSelected(opt);
+    selected = opt;
     const ok = opt === q.correct;
-    onAnswer(catKey, ok);
-    setScore((s) => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
-  };
+    recordAnswer(catId, ok);
+    score = { correct: score.correct + (ok ? 1 : 0), total: score.total + 1 };
+    updateQuestion();
+  }
 
-  const next = () => {
-    if (round >= TOTAL_ROUNDS) { setRound(1); setScore({ correct: 0, total: 0 }); }
-    else setRound((r) => r + 1);
-    setSelected(null);
-    setQ(buildQuestion(pool));
-  };
+  function nextQuestion() {
+    if (round >= TOTAL_ROUNDS) { round = 1; score = { correct: 0, total: 0 }; }
+    else round += 1;
+    selected = null;
+    q = buildQuestion(pool);
+    updateQuestion();
+  }
 
-  const finished = selected && round >= TOTAL_ROUNDS;
-
-  return (
-    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
-      <div className="margin-line" />
-      <TopBar title={`Quiz — ${title}`} onBack={onBack} />
-      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 16 }}>
-        Question {round} / {TOTAL_ROUNDS} · Score : {score.correct}/{score.total}
-      </div>
-      <div style={{ fontSize: 12, color: "#8a7455", marginBottom: 6 }}>Traduis en français :</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <div style={{ fontSize: 23, fontWeight: 700, color: "#1B2A4A" }}>{q.en}</div>
-        <SpeakBtn text={q.en} size={16} />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {q.options.map((opt) => {
-          let cls = "choice-btn";
-          if (selected) {
-            if (opt === q.correct) cls += " correct";
-            else if (opt === selected) cls += " wrong";
-          }
-          return <button key={opt} className={cls} onClick={() => pick(opt)}>{opt}</button>;
-        })}
-      </div>
-      {selected && (
-        <div style={{ marginTop: "auto", paddingTop: 20 }}>
-          {finished && (
-            <div style={{ fontFamily: "'Kalam', cursive", fontSize: 17, color: "#1B2A4A", marginBottom: 10 }}>
-              Terminé — {score.correct}/{score.total} bonnes réponses !
-            </div>
-          )}
-          <button className="primary-btn" style={{ width: "100%" }} onClick={next}>
-            {finished ? "Recommencer" : "Question suivante"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  updateQuestion();
+  return c;
 }
 
-function Builder({ onBack }) {
-  const [patternIdx, setPatternIdx] = useState(0);
-  const [verbIdx, setVerbIdx] = useState(0);
-  const [objIdx, setObjIdx] = useState(0);
-  const pattern = PATTERNS[patternIdx];
-  const verb = BUILDER_VERBS[verbIdx];
-  const obj = BUILDER_OBJECTS[objIdx];
+// --------------------------------------------------------------------------
+// Écran Constructeur de phrases
+// --------------------------------------------------------------------------
+function renderBuilder() {
+  let patternIdx = 0, verbIdx = 0, objIdx = 0;
 
-  const sentenceEn = `${pattern.en} ${verb}${obj ? " " + obj : ""}.`;
-  const sentenceFr = `${pattern.fr} ${verb}${obj ? " " + obj : ""}. (approximatif)`;
+  const c = el("div", { class: "ruled", style: "padding:20px 20px 24px 58px;min-height:660px;display:flex;flex-direction:column;" });
+  c.appendChild(topBar("Constructeur de phrases", () => navigate("home")));
+  c.appendChild(el("div", { style: "font-size:13px;color:#5b4a35;margin-bottom:16px;", text: "Choisis un bloc + un verbe + une précision, et regarde la phrase se construire — c'est l'esprit Michel Thomas : combiner au lieu de mémoriser." }));
 
-  return (
-    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
-      <div className="margin-line" />
-      <TopBar title="Constructeur de phrases" onBack={onBack} />
-      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 16 }}>
-        Choisis un bloc + un verbe + une précision, et regarde la phrase se construire — c'est l'esprit Michel Thomas : combiner au lieu de mémoriser.
-      </div>
+  function makeSelect(label, options, renderLabel, onChange) {
+    c.appendChild(el("label", { style: "font-size:12.5px;color:#8a7455;margin-bottom:4px;display:block;", text: label }));
+    const sel = el("select", { style: "margin-bottom:14px;" });
+    options.forEach((opt, i) => {
+      const o = el("option", { value: i, text: renderLabel(opt) });
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", (e) => onChange(Number(e.target.value)));
+    c.appendChild(sel);
+    return sel;
+  }
 
-      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Structure (bloc)</label>
-      <select value={patternIdx} onChange={(e) => setPatternIdx(Number(e.target.value))} style={{ marginBottom: 14 }}>
-        {PATTERNS.map((p, i) => <option key={i} value={i}>{p.en} — {p.fr}</option>)}
-      </select>
+  makeSelect("Structure (bloc)", PATTERNS, (p) => `${p.en} — ${p.fr}`, (v) => { patternIdx = v; update(); });
+  makeSelect("Verbe / action", BUILDER_VERBS, (v) => v, (v) => { verbIdx = v; update(); });
+  makeSelect("Précision (optionnel)", BUILDER_OBJECTS, (o) => o || "(rien)", (v) => { objIdx = v; update(); });
 
-      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Verbe / action</label>
-      <select value={verbIdx} onChange={(e) => setVerbIdx(Number(e.target.value))} style={{ marginBottom: 14 }}>
-        {BUILDER_VERBS.map((v, i) => <option key={i} value={i}>{v}</option>)}
-      </select>
+  const resultBox = el("div", { style: "background:#fff;border:2px solid #1B2A4A;border-radius:10px;padding:18px;margin-top:auto;" });
+  c.appendChild(resultBox);
 
-      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Précision (optionnel)</label>
-      <select value={objIdx} onChange={(e) => setObjIdx(Number(e.target.value))} style={{ marginBottom: 18 }}>
-        {BUILDER_OBJECTS.map((o, i) => <option key={i} value={i}>{o || "(rien)"}</option>)}
-      </select>
+  function update() {
+    const pattern = PATTERNS[patternIdx];
+    const verb = BUILDER_VERBS[verbIdx];
+    const obj = BUILDER_OBJECTS[objIdx];
+    const sentenceEn = `${pattern.en} ${verb}${obj ? " " + obj : ""}.`;
+    const sentenceFr = `${pattern.fr} ${verb}${obj ? " " + obj : ""}. (approximatif)`;
+    resultBox.innerHTML = "";
+    const row = el("div", { style: "display:flex;align-items:center;gap:10px;" });
+    row.appendChild(el("div", { style: "font-size:20px;font-weight:700;color:#1B2A4A;", text: sentenceEn }));
+    row.appendChild(speakBtn(sentenceEn));
+    resultBox.appendChild(row);
+    resultBox.appendChild(el("div", { style: "font-size:14px;color:#5b4a35;margin-top:8px;font-style:italic;", text: sentenceFr }));
+  }
+  update();
 
-      <div style={{ background: "#fff", border: "2px solid #1B2A4A", borderRadius: 10, padding: 18, marginTop: "auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#1B2A4A" }}>{sentenceEn}</div>
-          <SpeakBtn text={sentenceEn} size={16} />
-        </div>
-        <div style={{ fontSize: 14, color: "#5b4a35", marginTop: 8, fontStyle: "italic" }}>{sentenceFr}</div>
-      </div>
-    </div>
-  );
+  return c;
 }
 
-function TopBar({ title, onBack }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-      <button className="ghost-btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={onBack}>← Carnet</button>
-      <div style={{ fontFamily: "'Kalam', cursive", fontSize: 17, fontWeight: 700, color: "#1B2A4A" }}>{title}</div>
-      <div style={{ width: 70 }} />
-    </div>
-  );
-}
-
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// --------------------------------------------------------------------------
+// Démarrage
+// --------------------------------------------------------------------------
+(async function init() {
+  await loadProgress();
+  render();
+})();
 </script>
+
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
