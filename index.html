@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Mon carnet d'anglais</title>
+<meta name="description" content="Apprends l'anglais avec plus de 890 mots, des quiz et un constructeur de phrases." />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#C9A96B" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  html, body { margin: 0; padding: 0; background: #C9A96B; }
+  #root { min-height: 100vh; }
+</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// Substitut de window.storage (utilisé normalement dans les artefacts Claude)
+// basé sur localStorage, pour que l'application fonctionne hors de Claude.ai
+window.storage = {
+  async get(key, shared) {
+    try {
+      const raw = localStorage.getItem('carnet_' + key);
+      return raw === null ? null : { key, value: raw, shared: !!shared };
+    } catch (e) { return null; }
+  },
+  async set(key, value, shared) {
+    try {
+      localStorage.setItem('carnet_' + key, value);
+      return { key, value, shared: !!shared };
+    } catch (e) { return null; }
+  },
+  async delete(key, shared) {
+    try {
+      localStorage.removeItem('carnet_' + key);
+      return { key, deleted: true, shared: !!shared };
+    } catch (e) { return null; }
+  },
+  async list(prefix, shared) {
+    const p = 'carnet_' + (prefix || '');
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(p)).map(k => k.slice(8));
+    return { keys, prefix, shared: !!shared };
+  }
+};
+</script>
+<script type="text/babel" data-presets="react">
+/* ==========================================================================
+   MON CARNET D'ANGLAIS — MÉTHODE
+   Vocabulaire (1000+ mots), phrases-modèles façon Michel Thomas
+   (on apprend des blocs de construction et on les combine), quiz, et un
+   constructeur de phrases interactif.
+   ========================================================================== */
+
+const TITLES = {
+  numbers: "Nombres & quantités",
+  colors: "Couleurs",
+  family: "La famille",
+  body: "Le corps humain",
+  food: "Nourriture",
+  drinks: "Boissons",
+  clothes: "Vêtements",
+  house: "La maison",
+  city: "Ville & lieux",
+  transport: "Transports",
+  jobs: "Métiers",
+  animals: "Animaux",
+  nature: "Nature & météo",
+  time: "Le temps (jours, mois, heures)",
+  emotions: "Émotions & caractère",
+  verbs: "Verbes essentiels",
+  adjectives: "Adjectifs courants",
+  modern: "École, travail, argent, sport",
+  idioms: "Idiomes & expressions",
+  travel: "Voyage & aéroport",
+  religion: "Religion & Tabaski",
+  motoAdvanced: "Moto & mécanique (avancé)",
+};
+
+const RAW = {
+  numbers:
+    "zero|zéro,one|un,two|deux,three|trois,four|quatre,five|cinq,six|six,seven|sept,eight|huit,nine|neuf,ten|dix,eleven|onze,twelve|douze,thirteen|treize,fourteen|quatorze,fifteen|quinze,sixteen|seize,seventeen|dix-sept,eighteen|dix-huit,nineteen|dix-neuf,twenty|vingt,twenty-one|vingt et un,thirty|trente,forty|quarante,fifty|cinquante,sixty|soixante,seventy|soixante-dix,eighty|quatre-vingts,ninety|quatre-vingt-dix,hundred|cent,thousand|mille,million|million,first|premier,second|deuxième,third|troisième,last|dernier,half|moitié,quarter|quart,dozen|douzaine,many|beaucoup,few|peu,more|plus,less|moins,all|tout,none|aucun,several|plusieurs,enough|assez,double|double",
+  colors:
+    "red|rouge,blue|bleu,green|vert,yellow|jaune,black|noir,white|blanc,orange|orange,purple|violet,pink|rose,brown|marron,grey|gris,gold|doré,silver|argenté,dark|foncé,light|clair,beige|beige,turquoise|turquoise,navy blue|bleu marine,bright|vif,pale|pâle",
+  family:
+    "mother|mère,father|père,sister|sœur,brother|frère,son|fils,daughter|fille,husband|mari,wife|femme,grandmother|grand-mère,grandfather|grand-père,aunt|tante,uncle|oncle,cousin|cousin,child|enfant,baby|bébé,parents|parents,family|famille,friend|ami,neighbor|voisin,in-laws|beaux-parents,twin|jumeau,orphan|orphelin,widow|veuve,fiancé|fiancé,godmother|marraine,godfather|parrain",
+  body:
+    "head|tête,hair|cheveux,face|visage,eye|œil,ear|oreille,nose|nez,mouth|bouche,teeth|dents,tongue|langue,neck|cou,shoulder|épaule,arm|bras,hand|main,finger|doigt,chest|poitrine,back|dos,stomach|ventre,leg|jambe,knee|genou,foot|pied,toe|orteil,skin|peau,heart|cœur,blood|sang,bone|os,body|corps,muscle|muscle,nail|ongle,lip|lèvre,voice|voix,brain|cerveau,waist|taille,elbow|coude,wrist|poignet,ankle|cheville",
+  food:
+    "rice|riz,bread|pain,meat|viande,chicken|poulet,fish|poisson,beef|bœuf,egg|œuf,milk|lait,cheese|fromage,butter|beurre,oil|huile,salt|sel,pepper|poivre,sugar|sucre,tomato|tomate,onion|oignon,garlic|ail,potato|pomme de terre,carrot|carotte,banana|banane,fruit orange|orange,apple|pomme,mango|mangue,pineapple|ananas,lemon|citron,watermelon|pastèque,papaya|papaye,avocado|avocat,bean|haricot,corn|maïs,yam|igname,cassava|manioc,plantain|banane plantain,peanut|arachide,soup|soupe,sauce|sauce,spice|épice,vegetable|légume,fruit|fruit,meal|repas,breakfast|petit-déjeuner,lunch|déjeuner,dinner|dîner,snack|collation,dish|plat,spoon|cuillère,fork|fourchette,knife|couteau,plate|assiette,glass|verre,bowl|bol,pot|marmite,pan|poêle,kitchen|cuisine,restaurant|restaurant,menu|menu,taste|goût,delicious|délicieux,hungry|affamé,leftovers|restes,ingredient|ingrédient",
+  drinks:
+    "water|eau,tea|thé,coffee|café,juice|jus,beer|bière,wine|vin,soda|soda,milkshake|milk-shake,hot chocolate|chocolat chaud,ice|glaçon,bottle|bouteille,cup|tasse,straw|paille,fresh|frais,cold drink|boisson fraîche,thirsty|assoiffé",
+  clothes:
+    "shirt|chemise,trousers|pantalon,dress|robe,skirt|jupe,shoe|chaussure,sandal|sandale,hat|chapeau,cap|casquette,sock|chaussette,jacket|veste,coat|manteau,scarf|écharpe,belt|ceinture,glove|gant,bag|sac,wallet|portefeuille,watch|montre,jewelry|bijou,ring|bague,necklace|collier,glasses|lunettes,uniform|uniforme,pocket|poche,button|bouton,size|taille,fabric|tissu",
+  house:
+    "house|maison,room|pièce,bedroom|chambre,bathroom|salle de bain,living room|salon,door|porte,window|fenêtre,wall|mur,floor|sol,roof|toit,table|table,chair|chaise,bed|lit,sofa|canapé,cupboard|armoire,shelf|étagère,mirror|miroir,lamp|lampe,fan|ventilateur,fridge|réfrigérateur,stove|cuisinière,television|télévision,key|clé,lock|serrure,garden|jardin,yard|cour,fence|clôture,stairs|escalier,ceiling|plafond,curtain|rideau,towel|serviette,soap|savon,broom|balai,bucket|seau,trash|poubelle,electricity|électricité,tap|robinet,generator|groupe électrogène,neighbourhood|voisinage",
+  city:
+    "city|ville,village|village,street|rue,road|route,market|marché,shop|boutique,store|magasin,school|école,church|église,mosque|mosquée,hospital|hôpital,bank|banque,police station|poste de police,airport|aéroport,station|gare,hotel|hôtel,bridge|pont,park|parc,beach|plage,river|fleuve,lake|lac,mountain|montagne,farm|ferme,factory|usine,office|bureau,embassy|ambassade,court|tribunal,prison|prison,cemetery|cimetière,stadium|stade,library|bibliothèque,museum|musée,post office|poste,pharmacy|pharmacie,neighborhood|quartier,crowd|foule",
+  transport:
+    "car|voiture,bus|bus,taxi|taxi,motorcycle|moto,bicycle|vélo,truck|camion,train|train,plane|avion,boat|bateau,ship|navire,helicopter|hélicoptère,driver|chauffeur,passenger|passager,ticket|billet,luggage|bagage,gas|essence,tire|pneu,engine|moteur,brake|frein,traffic|circulation,traffic light|feu de circulation,license|permis,highway|autoroute,fare|tarif,journey|voyage,seat|siège,helmet|casque",
+  jobs:
+    "teacher|enseignant,doctor|médecin,nurse|infirmière,engineer|ingénieur,lawyer|avocat,farmer|agriculteur,mechanic|mécanicien,police officer|policier,soldier|soldat,chef|chef cuisinier,tailor|couturier,trader|commerçant,student|étudiant,worker|ouvrier,boss|patron,employee|employé,businessman|homme d'affaires,businesswoman|femme d'affaires,electrician|électricien,plumber|plombier,painter|peintre,journalist|journaliste,photographer|photographe,singer|chanteur,actor|acteur,pilot|pilote,secretary|secrétaire,accountant|comptable,salesperson|vendeur,president|président,fisherman|pêcheur,carpenter|menuisier",
+  animals:
+    "dog|chien,cat|chat,cow|vache,goat|chèvre,sheep|mouton,hen|poule,rooster|coq,duck|canard,pig|cochon,horse|cheval,donkey|âne,bird|oiseau,snake|serpent,lizard|lézard,monkey|singe,elephant|éléphant,lion|lion,tiger|tigre,leopard|léopard,crocodile|crocodile,spider|araignée,mosquito|moustique,fly|mouche,ant|fourmi,bee|abeille,rat|rat,mouse|souris,rabbit|lapin,turtle|tortue,frog|grenouille,butterfly|papillon,camel|chameau,zebra|zèbre,giraffe|girafe,hippopotamus|hippopotame,gorilla|gorille,parrot|perroquet,owl|hibou,eagle|aigle,wolf|loup,fish|poisson",
+  nature:
+    "sun|soleil,moon|lune,star|étoile,sky|ciel,cloud|nuage,rain|pluie,wind|vent,storm|tempête,thunder|tonnerre,lightning|éclair,heat|chaleur,coolness|fraîcheur,dust|poussière,dry season|saison sèche,rainy season|saison des pluies,tree|arbre,forest|forêt,grass|herbe,flower|fleur,leaf|feuille,sand|sable,stone|pierre,mud|boue,fire|feu,smoke|fumée,earth|terre,air|air,season|saison,harvest|récolte,drought|sécheresse,flood|inondation",
+  time:
+    "day|jour,night|nuit,week|semaine,month|mois,year|année,morning|matin,afternoon|après-midi,evening|soir,today|aujourd'hui,tomorrow|demain,yesterday|hier,now|maintenant,later|plus tard,early|tôt,late|en retard,always|toujours,never|jamais,sometimes|parfois,often|souvent,monday|lundi,tuesday|mardi,wednesday|mercredi,thursday|jeudi,friday|vendredi,saturday|samedi,sunday|dimanche,january|janvier,february|février,march|mars,april|avril,may|mai,june|juin,july|juillet,august|août,september|septembre,october|octobre,november|novembre,december|décembre,hour|heure,minute|minute,second|seconde,clock|horloge,calendar|calendrier,holiday|jour férié,birthday|anniversaire",
+  emotions:
+    "happy|heureux,sad|triste,angry|en colère,afraid|effrayé,surprised|surpris,worried|inquiet,calm|calme,excited|enthousiaste,bored|ennuyé,proud|fier,ashamed|honteux,jealous|jaloux,confident|confiant,nervous|nerveux,shy|timide,kind|gentil,honest|honnête,lazy|paresseux,hardworking|travailleur,patient|patient,impatient|impatient,generous|généreux,selfish|égoïste,brave|courageux,polite|poli,rude|impoli,funny|drôle,serious|sérieux,smart|intelligent,stupid|stupide,stubborn|têtu,curious|curieux,grateful|reconnaissant,strong-willed|volontaire,gentle|doux",
+  verbs:
+    "to be|être,to have|avoir,to do|faire,to go|aller,to come|venir,to want|vouloir,to need|avoir besoin de,to like|aimer,to love|adorer,to hate|détester,to know|savoir,to think|penser,to understand|comprendre,to speak|parler,to say|dire,to tell|raconter,to ask|demander,to answer|répondre,to see|voir,to look|regarder,to watch|regarder (un écran),to listen|écouter,to hear|entendre,to eat|manger,to drink|boire,to sleep|dormir,to wake up|se réveiller,to work|travailler,to study|étudier,to learn|apprendre,to teach|enseigner,to read|lire,to write|écrire,to play|jouer,to sing|chanter,to dance|danser,to run|courir,to walk|marcher,to jump|sauter,to swim|nager,to drive|conduire,to ride|monter (à bord),to fly|voler,to travel|voyager,to arrive|arriver,to leave|partir,to stay|rester,to wait|attendre,to help|aider,to give|donner,to take|prendre,to buy|acheter,to sell|vendre,to pay|payer,to cost|coûter,to open|ouvrir,to close|fermer,to start|commencer,to finish|finir,to stop|arrêter,to continue|continuer,to try|essayer,to use|utiliser,to make|fabriquer,to build|construire,to break|casser,to fix|réparer,to clean|nettoyer,to wash|laver,to cook|cuisiner,to call|appeler,to send|envoyer,to receive|recevoir,to meet|rencontrer,to visit|visiter,to live|vivre,to die|mourir,to grow|grandir,to change|changer,to remember|se souvenir de,to forget|oublier,to forgive|pardonner,to promise|promettre,to lie|mentir,to trust|faire confiance,to believe|croire,to hope|espérer,to pray|prier,to fight|se battre,to win|gagner,to lose|perdre,to smile|sourire,to laugh|rire,to cry|pleurer,to shout|crier,to whisper|chuchoter,to push|pousser,to pull|tirer,to carry|porter,to throw|lancer,to catch|attraper,to hold|tenir,to touch|toucher,to find|trouver,to search|chercher,to choose|choisir,to decide|décider,to explain|expliquer,to repeat|répéter,to share|partager,to borrow|emprunter,to lend|prêter,to save|économiser,to spend|dépenser,to invite|inviter,to accept|accepter,to refuse|refuser,to allow|permettre,to prevent|empêcher,to plan|prévoir",
+  adjectives:
+    "big|grand,small|petit,tall|grand (taille),short|court,long|long,wide|large,narrow|étroit,heavy|lourd,light weight|léger,fast|rapide,slow|lent,new|nouveau,old|vieux,young|jeune,good|bon,bad|mauvais,beautiful|beau,ugly|laid,clean|propre,dirty|sale,easy|facile,difficult|difficile,cheap|bon marché,expensive|cher,rich|riche,poor|pauvre,soft|doux,hard|dur,wet|mouillé,dry|sec,full|plein,empty|vide,open|ouvert,closed|fermé,near|proche,far|loin,high|haut,low|bas,deep|profond,shallow|peu profond,loud|bruyant,quiet|calme,bright|lumineux,dark|sombre,sharp|tranchant,dull|terne,round|rond,square|carré,flat|plat,thick|épais,thin|mince,famous|célèbre,dangerous|dangereux,safe|sûr,free|gratuit,ready|prêt,similar|similaire,different|différent,possible|possible,impossible|impossible",
+  modern:
+    "book|livre,pen|stylo,pencil|crayon,notebook|cahier,exam|examen,homework|devoir,class|classe,lesson|leçon,principal|directeur,classmate|camarade de classe,computer|ordinateur,phone|téléphone,internet|internet,application|application,password|mot de passe,battery|batterie,charger|chargeur,screen|écran,video|vidéo,photo|photo,message|message,signal|signal,salary|salaire,job|emploi,meeting|réunion,contract|contrat,customer|client,price|prix,discount|réduction,receipt|reçu,cash|espèces,credit|crédit,debt|dette,loan|prêt,savings|épargne,budget|budget,tax|taxe,ball|ballon,goal|but,team|équipe,coach|entraîneur,referee|arbitre,champion|champion,trophy|trophée,training|entraînement,match|match,player|joueur,fan|supporter,score|score,win|victoire,loss|défaite,draw|match nul,league|ligue,tournament|tournoi,injury|blessure,rest|repos,health|santé,medicine|médicament,consultation|consultation,pain|douleur,fever|fièvre",
+  idioms:
+    "to break the ice|briser la glace,a piece of cake|un jeu d'enfant,to be under the weather|être patraque,to cost an arm and a leg|coûter les yeux de la tête,to hit the road|se mettre en route,once in a blue moon|très rarement,the ball is in your court|c'est à toi de jouer,better late than never|mieux vaut tard que jamais,to kill two birds with one stone|faire d'une pierre deux coups,it's raining cats and dogs|il pleut des cordes,break a leg|bonne chance,speak of the devil|quand on parle du loup,a blessing in disguise|un mal pour un bien,to be broke|être fauché,to make ends meet|joindre les deux bouts,time flies|le temps passe vite,easy come easy go|vite gagné vite perdu,no pain no gain|qui ne risque rien n'a rien,to keep an eye on|garder un œil sur,to give someone a piece of your mind|dire ses quatre vérités à quelqu'un,to hit the books|se mettre à étudier sérieusement,to be on the same page|être sur la même longueur d'onde,to give someone a hand|donner un coup de main à quelqu'un,to feel under pressure|se sentir sous pression,a long shot|un coup risqué,to be in the same boat|être dans le même bateau,to burn the midnight oil|travailler tard dans la nuit,to call it a day|arrêter pour aujourd'hui,to bite the bullet|serrer les dents et le faire,actions speak louder than words|les actes valent plus que les mots",
+  travel:
+    "passport|passeport,visa|visa,boarding pass|carte d'embarquement,suitcase|valise,customs|douane,border|frontière,departure|départ,arrival|arrivée,delay|retard,flight|vol,gate|porte d'embarquement,reservation|réservation,one-way ticket|billet aller simple,round trip|aller-retour,destination|destination,tourist|touriste,guide|guide,map|carte,souvenir|souvenir,currency exchange|bureau de change,travel insurance|assurance voyage,vaccination|vaccination,accommodation|hébergement,check-in|enregistrement,check-out|départ de l'hôtel,itinerary|itinéraire,local time|heure locale,sightseeing|visite touristique,excursion|excursion,crew|équipage,seatbelt|ceinture de sécurité,overweight luggage|bagage en surpoids,transit|transit,lost luggage|bagage perdu,duty-free|hors taxes,security check|contrôle de sécurité",
+  religion:
+    "prayer|prière,ramadan|ramadan,fasting|jeûne,eid|aïd,tabaski|tabaski,sacrifice|sacrifice,ram|bélier,blessing|bénédiction,faith|foi,God|Dieu,prophet|prophète,pilgrimage|pèlerinage,mecca|la Mecque,alms|aumône,charity|charité,forgiveness|pardon,peace be upon him|paix sur lui,holy|saint,sermon|sermon,imam|imam,mercy|miséricorde,gratitude|gratitude,celebration|célébration,family gathering|réunion de famille,new clothes|habits neufs,feast|festin,to slaughter|égorger,mat for prayer|tapis de prière,to wish someone well|souhaiter du bien à quelqu'un",
+  motoAdvanced:
+    "engine oil|huile moteur,spark plug|bougie d'allumage,chain|chaîne,clutch|embrayage,gear|vitesse,gearbox|boîte de vitesses,exhaust pipe|pot d'échappement,carburetor|carburateur,moto battery|batterie de moto,headlight|phare,taillight|feu arrière,horn|klaxon,side mirror|rétroviseur,kickstand|béquille,handlebar|guidon,wheel|roue,puncture|crevaison,mechanic shop|garage,spare part|pièce de rechange,tool|outil,wrench|clé (outil),screwdriver|tournevis,to start the engine|démarrer le moteur,to check the oil|vérifier l'huile,flat tire|pneu à plat,brake pad|plaquette de frein,fuel tank|réservoir d'essence,top speed|vitesse maximale,accident|accident,license plate|plaque d'immatriculation,insurance papers|papiers d'assurance,registration card|carte grise,mileage|kilométrage,to overheat|surchauffer,to break down|tomber en panne,to tighten|serrer,to loosen|desserrer",
+};
+
+function speak(text) {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text.replace(/^to\s+/i, ""));
+    utter.lang = "en-US";
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
+}
+
+function SpeakBtn({ text, size = 20 }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); speak(text); }}
+      aria-label="Écouter la prononciation"
+      style={{
+        background: "#1B2A4A", color: "#fff", border: "none", borderRadius: "50%",
+        width: size + 16, height: size + 16, display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size, flexShrink: 0, boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      }}
+    >
+      🔊
+    </button>
+  );
+}
+
+function parseCategory(raw) {
+  return raw
+    .split(",")
+    .map((pair) => {
+      const [en, fr] = pair.split("|");
+      return { en, fr };
+    })
+    .filter((x) => x.en && x.fr);
+}
+
+const CATEGORIES = Object.keys(RAW).map((id) => ({
+  id,
+  title: TITLES[id],
+  words: parseCategory(RAW[id]),
+}));
+
+const ALL_WORDS = CATEGORIES.flatMap((c) => c.words.map((w) => ({ ...w, cat: c.id })));
+
+// --------------------------------------------------------------------------
+// PATTERNS — la méthode "façon Michel Thomas" : des blocs de construction
+// qu'on combine avec des verbes pour produire des dizaines de phrases.
+// --------------------------------------------------------------------------
+const PATTERNS = [
+  { en: "I want to", fr: "Je veux" },
+  { en: "I don't want to", fr: "Je ne veux pas" },
+  { en: "I need to", fr: "J'ai besoin de" },
+  { en: "I would like to", fr: "J'aimerais" },
+  { en: "I have to", fr: "Je dois" },
+  { en: "I don't have to", fr: "Je n'ai pas à" },
+  { en: "I can", fr: "Je peux" },
+  { en: "I can't", fr: "Je ne peux pas" },
+  { en: "I could", fr: "Je pourrais" },
+  { en: "I am going to", fr: "Je vais" },
+  { en: "I was going to", fr: "J'allais" },
+  { en: "I have already", fr: "J'ai déjà" },
+  { en: "I haven't yet", fr: "Je n'ai pas encore" },
+  { en: "I used to", fr: "Avant, j'avais l'habitude de" },
+  { en: "I should", fr: "Je devrais" },
+  { en: "I shouldn't", fr: "Je ne devrais pas" },
+  { en: "I must", fr: "Je dois absolument" },
+  { en: "I mustn't", fr: "Je ne dois surtout pas" },
+  { en: "It's time to", fr: "Il est temps de" },
+  { en: "I'm trying to", fr: "J'essaie de" },
+  { en: "I forgot to", fr: "J'ai oublié de" },
+  { en: "I remember to", fr: "Je me souviens de" },
+  { en: "I'm afraid to", fr: "J'ai peur de" },
+  { en: "I'm happy to", fr: "Je suis content de" },
+  { en: "I hope to", fr: "J'espère" },
+  { en: "I plan to", fr: "Je prévois de" },
+  { en: "I decided to", fr: "J'ai décidé de" },
+  { en: "I'm learning to", fr: "J'apprends à" },
+  { en: "I know how to", fr: "Je sais comment" },
+  { en: "I don't know how to", fr: "Je ne sais pas comment" },
+  { en: "It's easy to", fr: "C'est facile de" },
+  { en: "It's difficult to", fr: "C'est difficile de" },
+  { en: "I prefer to", fr: "Je préfère" },
+  { en: "Can you", fr: "Peux-tu" },
+  { en: "Could you", fr: "Pourrais-tu" },
+  { en: "Would you like to", fr: "Voudrais-tu" },
+  { en: "Do you want to", fr: "Veux-tu" },
+];
+
+const BUILDER_VERBS = [
+  "go", "eat", "sleep", "work", "study", "play", "buy", "sell", "speak English",
+  "learn English", "help you", "see you", "make food", "take a taxi", "give money",
+  "come here", "leave now", "stay home", "drive the car", "cook rice", "clean the house",
+  "read this book", "write a message", "watch the match", "listen to music", "dance",
+  "sing", "swim", "run", "walk", "drink water", "pay", "call you", "wait", "finish this",
+  "start now", "open the door", "close the shop", "use my phone", "try again", "understand this",
+];
+
+const BUILDER_OBJECTS = ["", "today", "tomorrow", "with you", "right now", "this evening", "before Friday"];
+
+const STORAGE_KEY = "carnet-anglais-v2-progress";
+
+function useProgress() {
+  const [progress, setProgress] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await window.storage.get(STORAGE_KEY, false);
+        setProgress(res ? JSON.parse(res.value) : {});
+      } catch (e) {
+        setProgress({});
+      }
+    })();
+  }, []);
+
+  const save = useCallback(async (next) => {
+    setProgress(next);
+    try {
+      await window.storage.set(STORAGE_KEY, JSON.stringify(next), false);
+    } catch (e) {}
+  }, []);
+
+  const recordAnswer = useCallback(
+    (catId, correct) => {
+      setProgress((prev) => {
+        const cur = prev[catId] || { correct: 0, attempts: 0 };
+        const next = {
+          ...prev,
+          [catId]: { correct: cur.correct + (correct ? 1 : 0), attempts: cur.attempts + 1 },
+        };
+        save(next);
+        return next;
+      });
+    },
+    [save]
+  );
+
+  return { progress, recordAnswer };
+}
+
+function Stamp({ stats }) {
+  if (!stats || !stats.attempts) return null;
+  const pct = Math.round((stats.correct / stats.attempts) * 100);
+  return (
+    <div
+      style={{
+        width: 40, height: 40, borderRadius: "50%",
+        border: `2.5px solid ${pct >= 70 ? "#2F4F3E" : "#C0392B"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'Kalam', cursive", fontWeight: 700, fontSize: 12,
+        color: pct >= 70 ? "#2F4F3E" : "#C0392B", transform: "rotate(-8deg)", flexShrink: 0,
+      }}
+    >
+      {pct}%
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState("home");
+  const [catId, setCatId] = useState(null);
+  const [search, setSearch] = useState("");
+  const { progress, recordAnswer } = useProgress();
+  const category = useMemo(() => CATEGORIES.find((c) => c.id === catId) || null, [catId]);
+
+  const wordCount = ALL_WORDS.length;
+
+  const searchResults = useMemo(() => {
+    if (search.trim().length < 2) return [];
+    const q = search.trim().toLowerCase();
+    return ALL_WORDS.filter((w) => w.en.toLowerCase().includes(q) || w.fr.toLowerCase().includes(q)).slice(0, 30);
+  }, [search]);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh", background: "#C9A96B",
+        backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 6px)",
+        fontFamily: "'Work Sans', sans-serif", padding: "24px 14px 60px", display: "flex", justifyContent: "center",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Work+Sans:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        button { font-family: inherit; cursor: pointer; }
+        .notebook { width: 100%; max-width: 480px; background: #F5EFDF; border-radius: 4px;
+          box-shadow: 0 18px 40px rgba(50,35,15,0.35), 0 2px 0 rgba(0,0,0,0.1); position: relative; overflow: hidden; min-height: 660px; }
+        .margin-line { position: absolute; left: 46px; top: 0; bottom: 0; width: 2px; background: #C0392B; opacity: 0.55; }
+        .ruled { background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(27,42,74,0.08) 32px); }
+        .tab-btn { border: none; background: transparent; text-align: left; padding: 12px 16px 12px 58px; font-size: 15.5px;
+          font-weight: 600; color: #1B2A4A; display: flex; align-items: baseline; gap: 10px; width: 100%; }
+        select, input[type=text] { font-family: inherit; border: 2px solid #1B2A4A; border-radius: 8px; padding: 8px 10px; font-size: 14px; background: #fff; color: #1B2A4A; }
+        .flip-card { perspective: 1000px; height: 190px; }
+        .flip-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s; transform-style: preserve-3d; }
+        .flip-inner.flipped { transform: rotateY(180deg); }
+        .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; padding: 18px; text-align: center; }
+        .face.front { background: #fff; border: 2px solid #1B2A4A; }
+        .face.back { background: #1B2A4A; color: #F5EFDF; transform: rotateY(180deg); }
+        .choice-btn { border: 2px solid #1B2A4A; background: #fff; border-radius: 8px; padding: 11px 14px; font-size: 14.5px;
+          font-weight: 600; color: #1B2A4A; text-align: left; }
+        .choice-btn.correct { background: #2F4F3E; border-color: #2F4F3E; color: #fff; }
+        .choice-btn.wrong { background: #C0392B; border-color: #C0392B; color: #fff; }
+        .primary-btn { background: #C0392B; color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-weight: 700; font-size: 15px; }
+        .ghost-btn { background: transparent; border: 2px solid #1B2A4A; color: #1B2A4A; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: 13.5px; }
+        .chip { display: inline-block; padding: 6px 10px; border: 1.5px solid #1B2A4A; border-radius: 20px; font-size: 12.5px; margin: 3px 4px 3px 0; background: #fff; color:#1B2A4A; }
+      `}</style>
+
+      <div className="notebook">
+        {screen === "home" && (
+          <Home
+            progress={progress}
+            wordCount={wordCount}
+            search={search}
+            setSearch={setSearch}
+            searchResults={searchResults}
+            onOpen={(id, mode) => { setCatId(id); setScreen(mode); }}
+            onBuilder={() => setScreen("builder")}
+            onGeneralQuiz={() => { setCatId("__all__"); setScreen("quiz"); }}
+          />
+        )}
+        {screen === "flash" && category && (
+          <Flashcards category={category} onBack={() => setScreen("home")} onQuiz={() => setScreen("quiz")} />
+        )}
+        {screen === "quiz" && catId && (
+          <Quiz
+            title={catId === "__all__" ? "Quiz général" : category.title}
+            pool={catId === "__all__" ? ALL_WORDS : category.words}
+            catKey={catId}
+            onAnswer={recordAnswer}
+            onBack={() => setScreen("home")}
+          />
+        )}
+        {screen === "builder" && <Builder onBack={() => setScreen("home")} />}
+      </div>
+    </div>
+  );
+}
+
+function Home({ progress, wordCount, search, setSearch, searchResults, onOpen, onBuilder, onGeneralQuiz }) {
+  return (
+    <div>
+      <div className="margin-line" />
+      <div style={{ padding: "24px 20px 14px 58px" }}>
+        <div style={{ fontFamily: "'Kalam', cursive", fontSize: 28, fontWeight: 700, color: "#1B2A4A", transform: "rotate(-1.5deg)" }}>
+          Mon carnet d'anglais
+        </div>
+        <div style={{ fontSize: 13, color: "#5b4a35", marginTop: 4 }}>
+          {wordCount}+ mots et {PATTERNS.length} structures — méthode par blocs, comme Michel Thomas.
+        </div>
+        <input
+          type="text" placeholder="Chercher un mot (ex : maison, to go...)" value={search}
+          onChange={(e) => setSearch(e.target.value)} style={{ width: "100%", marginTop: 12 }}
+        />
+        {searchResults.length > 0 && (
+          <div style={{ marginTop: 8, maxHeight: 160, overflowY: "auto", background: "#fff", border: "1.5px solid #1B2A4A", borderRadius: 8, padding: 8 }}>
+            {searchResults.map((w, i) => (
+              <div key={i} style={{ fontSize: 13.5, padding: "4px 2px", borderBottom: i < searchResults.length - 1 ? "1px dashed #ddd" : "none", display: "flex", alignItems: "center", gap: 8 }}>
+                <span><strong>{w.en}</strong> — {w.fr}</span>
+                <SpeakBtn text={w.en} size={12} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: "4px 20px 14px 58px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="primary-btn" style={{ fontSize: 13.5, padding: "9px 14px" }} onClick={onBuilder}>
+          🧩 Constructeur de phrases
+        </button>
+        <button className="ghost-btn" onClick={onGeneralQuiz}>Quiz général (tout mélangé)</button>
+      </div>
+
+      <div style={{ borderTop: "1px dashed rgba(27,42,74,0.25)", maxHeight: 380, overflowY: "auto" }}>
+        {CATEGORIES.map((c, i) => (
+          <div key={c.id} style={{ borderBottom: "1px dashed rgba(27,42,74,0.2)" }}>
+            <div className="tab-btn" style={{ paddingBottom: 2 }}>
+              <span style={{ fontFamily: "'Kalam', cursive", color: "#C0392B", fontWeight: 700, fontSize: 14 }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div>
+                <div>{c.title}</div>
+                <div style={{ fontWeight: 400, fontSize: 12, color: "#5b4a35" }}>{c.words.length} mots</div>
+              </div>
+            </div>
+            <div style={{ padding: "0 16px 12px 58px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="primary-btn" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => onOpen(c.id, "flash")}>Fiches</button>
+              <button className="ghost-btn" onClick={() => onOpen(c.id, "quiz")}>Quiz</button>
+              <Stamp stats={progress[c.id]} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: "14px 20px 20px 58px", fontSize: 11.5, color: "#8a7455" }}>
+        Astuce Michel Thomas : ne mémorise pas par cœur — combine les blocs (« I want to » + un verbe) pour produire toi-même des phrases.
+      </div>
+    </div>
+  );
+}
+
+function Flashcards({ category, onBack, onQuiz }) {
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const item = category.words[idx];
+  const next = () => { setFlipped(false); setIdx((i) => (i + 1) % category.words.length); };
+  const prev = () => { setFlipped(false); setIdx((i) => (i - 1 + category.words.length) % category.words.length); };
+
+  return (
+    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
+      <div className="margin-line" />
+      <TopBar title={category.title} onBack={onBack} />
+      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 10 }}>
+        Carte {idx + 1} / {category.words.length} — touche la carte pour retourner
+      </div>
+      <div className="flip-card" onClick={() => setFlipped((f) => !f)}>
+        <div className={`flip-inner ${flipped ? "flipped" : ""}`}>
+          <div className="face front">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+              <div style={{ fontSize: 21, fontWeight: 700, color: "#1B2A4A" }}>{item.en}</div>
+              <SpeakBtn text={item.en} />
+            </div>
+            <div style={{ fontSize: 12, color: "#8a7455", marginTop: 10 }}>touche pour voir la traduction · touche 🔊 pour écouter</div>
+          </div>
+          <div className="face back">
+            <div style={{ fontSize: 21, fontWeight: 700 }}>{item.fr}</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 18 }}>
+        <button className="ghost-btn" onClick={prev}>← Précédent</button>
+        <button className="ghost-btn" onClick={next}>Suivant →</button>
+      </div>
+      <div style={{ marginTop: "auto", paddingTop: 20 }}>
+        <button className="primary-btn" style={{ width: "100%" }} onClick={onQuiz}>Faire le quiz de ce chapitre</button>
+      </div>
+    </div>
+  );
+}
+
+function buildQuestion(pool) {
+  const correctItem = pool[Math.floor(Math.random() * pool.length)];
+  const others = pool.filter((it) => it.fr !== correctItem.fr);
+  const distractors = [];
+  const copy = [...others];
+  while (distractors.length < 3 && copy.length > 0) {
+    distractors.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0].fr);
+  }
+  const options = [...distractors, correctItem.fr].sort(() => Math.random() - 0.5);
+  return { en: correctItem.en, correct: correctItem.fr, options };
+}
+
+function Quiz({ title, pool, catKey, onAnswer, onBack }) {
+  const [q, setQ] = useState(() => buildQuestion(pool));
+  const [selected, setSelected] = useState(null);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [round, setRound] = useState(1);
+  const TOTAL_ROUNDS = 10;
+
+  const pick = (opt) => {
+    if (selected) return;
+    setSelected(opt);
+    const ok = opt === q.correct;
+    onAnswer(catKey, ok);
+    setScore((s) => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
+  };
+
+  const next = () => {
+    if (round >= TOTAL_ROUNDS) { setRound(1); setScore({ correct: 0, total: 0 }); }
+    else setRound((r) => r + 1);
+    setSelected(null);
+    setQ(buildQuestion(pool));
+  };
+
+  const finished = selected && round >= TOTAL_ROUNDS;
+
+  return (
+    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
+      <div className="margin-line" />
+      <TopBar title={`Quiz — ${title}`} onBack={onBack} />
+      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 16 }}>
+        Question {round} / {TOTAL_ROUNDS} · Score : {score.correct}/{score.total}
+      </div>
+      <div style={{ fontSize: 12, color: "#8a7455", marginBottom: 6 }}>Traduis en français :</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={{ fontSize: 23, fontWeight: 700, color: "#1B2A4A" }}>{q.en}</div>
+        <SpeakBtn text={q.en} size={16} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {q.options.map((opt) => {
+          let cls = "choice-btn";
+          if (selected) {
+            if (opt === q.correct) cls += " correct";
+            else if (opt === selected) cls += " wrong";
+          }
+          return <button key={opt} className={cls} onClick={() => pick(opt)}>{opt}</button>;
+        })}
+      </div>
+      {selected && (
+        <div style={{ marginTop: "auto", paddingTop: 20 }}>
+          {finished && (
+            <div style={{ fontFamily: "'Kalam', cursive", fontSize: 17, color: "#1B2A4A", marginBottom: 10 }}>
+              Terminé — {score.correct}/{score.total} bonnes réponses !
+            </div>
+          )}
+          <button className="primary-btn" style={{ width: "100%" }} onClick={next}>
+            {finished ? "Recommencer" : "Question suivante"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Builder({ onBack }) {
+  const [patternIdx, setPatternIdx] = useState(0);
+  const [verbIdx, setVerbIdx] = useState(0);
+  const [objIdx, setObjIdx] = useState(0);
+  const pattern = PATTERNS[patternIdx];
+  const verb = BUILDER_VERBS[verbIdx];
+  const obj = BUILDER_OBJECTS[objIdx];
+
+  const sentenceEn = `${pattern.en} ${verb}${obj ? " " + obj : ""}.`;
+  const sentenceFr = `${pattern.fr} ${verb}${obj ? " " + obj : ""}. (approximatif)`;
+
+  return (
+    <div className="ruled" style={{ padding: "20px 20px 24px 58px", minHeight: 660, display: "flex", flexDirection: "column" }}>
+      <div className="margin-line" />
+      <TopBar title="Constructeur de phrases" onBack={onBack} />
+      <div style={{ fontSize: 13, color: "#5b4a35", marginBottom: 16 }}>
+        Choisis un bloc + un verbe + une précision, et regarde la phrase se construire — c'est l'esprit Michel Thomas : combiner au lieu de mémoriser.
+      </div>
+
+      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Structure (bloc)</label>
+      <select value={patternIdx} onChange={(e) => setPatternIdx(Number(e.target.value))} style={{ marginBottom: 14 }}>
+        {PATTERNS.map((p, i) => <option key={i} value={i}>{p.en} — {p.fr}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Verbe / action</label>
+      <select value={verbIdx} onChange={(e) => setVerbIdx(Number(e.target.value))} style={{ marginBottom: 14 }}>
+        {BUILDER_VERBS.map((v, i) => <option key={i} value={i}>{v}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12.5, color: "#8a7455", marginBottom: 4 }}>Précision (optionnel)</label>
+      <select value={objIdx} onChange={(e) => setObjIdx(Number(e.target.value))} style={{ marginBottom: 18 }}>
+        {BUILDER_OBJECTS.map((o, i) => <option key={i} value={i}>{o || "(rien)"}</option>)}
+      </select>
+
+      <div style={{ background: "#fff", border: "2px solid #1B2A4A", borderRadius: 10, padding: 18, marginTop: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#1B2A4A" }}>{sentenceEn}</div>
+          <SpeakBtn text={sentenceEn} size={16} />
+        </div>
+        <div style={{ fontSize: 14, color: "#5b4a35", marginTop: 8, fontStyle: "italic" }}>{sentenceFr}</div>
+      </div>
+    </div>
+  );
+}
+
+function TopBar({ title, onBack }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <button className="ghost-btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={onBack}>← Carnet</button>
+      <div style={{ fontFamily: "'Kalam', cursive", fontSize: 17, fontWeight: 700, color: "#1B2A4A" }}>{title}</div>
+      <div style={{ width: 70 }} />
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
